@@ -1,2 +1,5 @@
 deep_translator
 bs4
+
+# update-i18n(zh-cn,tw).py
+opencc-python-reimplemented
