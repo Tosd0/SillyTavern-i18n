@@ -4,10 +4,11 @@ Tools for working with frontend localization files.
 
 ## Features
 
-1. Automatically add new keys to translate from HTML files.
-2. Prune missing keys from localization files.
-3. Use automatic Google translation to auto-populate missing values.
-4. Sort JSON files by keys.
+1. Automatically add new keys from HTML `data-i18n` attributes.
+2. Extract keys from scripts (`t` template tag and `translate(...)`).
+3. Prune missing keys from localization files.
+4. Use automatic Google translation to auto-populate missing values.
+5. Sort JSON files by extracted key order.
 
 ## Usage
 
