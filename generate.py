@@ -473,7 +473,7 @@ def collect_source_files(directory):
 
 def process_source_files(directory):
     i18n_data = OrderedDict()
-    key_source_paths = {}
+    key_source_positions = {}
     source_files = collect_source_files(directory)
 
     for source_file in source_files:
@@ -486,16 +486,23 @@ def process_source_files(directory):
             extracted = extract_i18n_keys_from_scripts(source_content)
 
         normalized_source_path = normalize_relative_path(source_file, directory)
-        for key in extracted.keys():
-            if key and key not in key_source_paths:
-                key_source_paths[key] = normalized_source_path
+        for key_index, key in enumerate(extracted.keys()):
+            if key and key not in key_source_positions:
+                key_source_positions[key] = (normalized_source_path, key_index)
 
         merge_i18n_entries(i18n_data, extracted)
 
-    return i18n_data, key_source_paths
+    return i18n_data, key_source_positions
 
 
-def update_json(json_file, i18n_dict, key_source_paths=None, flags=None):
+def update_json(json_file, i18n_dict, key_source_positions=None, flags=None):
+    # Backward compatibility: allow update_json(json_file, i18n_dict, flags)
+    if flags is None and isinstance(key_source_positions, dict):
+        flag_keys = {"sort_keys", "auto_remove", "auto_add", "auto_translate"}
+        if set(key_source_positions.keys()).issubset(flag_keys):
+            flags = key_source_positions
+            key_source_positions = None
+
     if flags is None:
         flags = {
             "sort_keys": True,
@@ -503,8 +510,8 @@ def update_json(json_file, i18n_dict, key_source_paths=None, flags=None):
             "auto_add": True,
             "auto_translate": False,
         }
-    if key_source_paths is None:
-        key_source_paths = {}
+    if key_source_positions is None:
+        key_source_positions = {}
 
     with open(json_file, "r", encoding="utf-8") as file:
         data = json.load(file, object_pairs_hook=OrderedDict)
@@ -546,7 +553,8 @@ def update_json(json_file, i18n_dict, key_source_paths=None, flags=None):
             data.keys(),
             key=lambda key: (
                 0 if key in i18n_dict else 1,
-                key_source_paths.get(key, ""),
+                key_source_positions.get(key, ("", sys.maxsize))[0],
+                key_source_positions.get(key, ("", sys.maxsize))[1],
                 key.casefold(),
                 key,
             ),
@@ -584,7 +592,7 @@ if __name__ == "__main__":
     )
     argparser.add_argument(
         "--sort-keys",
-        help="Sort keys by project tree order (source path + key)",
+        help="Sort keys by project tree order (source path + first appearance in file)",
         action="store_true",
         default=False,
     )
@@ -601,7 +609,7 @@ if __name__ == "__main__":
         exit(1)
 
     locales_path = os.path.join(directory_path, "locales")
-    all_i18n_data, key_source_paths = process_source_files(directory_path)
+    all_i18n_data, key_source_positions = process_source_files(directory_path)
     flags = {
         "auto_add": args.auto_add,
         "auto_translate": args.auto_translate,
@@ -623,7 +631,7 @@ if __name__ == "__main__":
             else:
                 print(f"JSON file '{json_file_path}' not found.", file=sys.stderr)
                 exit(1)
-        updated_json = update_json(json_file_path, all_i18n_data, key_source_paths, flags)
+        updated_json = update_json(json_file_path, all_i18n_data, key_source_positions, flags)
     else:
         print("Updating all JSON files...")
         for json_file in os.listdir(locales_path):
@@ -633,5 +641,5 @@ if __name__ == "__main__":
                 and not json_file.endswith("en.json")
             ):
                 json_file_path = os.path.join(locales_path, json_file)
-                updated_json = update_json(json_file_path, all_i18n_data, key_source_paths, flags)
+                updated_json = update_json(json_file_path, all_i18n_data, key_source_positions, flags)
     print("Done!")
