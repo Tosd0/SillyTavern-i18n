@@ -78,6 +78,7 @@ def create_run_totals():
         "nf": 0,
         "add": 0,
         "skip": 0,
+        "dup": 0,
         "extra": 0,
         "remove": 0,
         "err": 0,
@@ -113,6 +114,25 @@ def merge_i18n_entries(target, source):
             target[key] = value
         elif target[key] == "" and value != "":
             target[key] = value
+
+
+def load_json_with_first_key_wins(json_file):
+    duplicate_keys = []
+
+    def object_pairs_first_wins(pairs):
+        data = OrderedDict()
+        for key, value in pairs:
+            if key in data:
+                duplicate_keys.append(key)
+                continue
+            data[key] = value
+        return data
+
+    with open(json_file, "r", encoding="utf-8") as file:
+        content = file.read()
+
+    parsed_data = json.loads(content, object_pairs_hook=object_pairs_first_wins)
+    return parsed_data, duplicate_keys
 
 
 def extract_i18n_keys_from_html(html_content):
@@ -815,8 +835,7 @@ def update_json(json_file, i18n_dict, key_source_positions=None, flags=None, run
     if key_source_positions is None:
         key_source_positions = {}
 
-    with open(json_file, "r", encoding="utf-8") as file:
-        data = json.load(file, object_pairs_hook=OrderedDict)
+    data, duplicate_keys = load_json_with_first_key_wins(json_file)
 
     target_name = os.path.splitext(os.path.basename(json_file))[0]
     display_path = format_display_path(json_file)
@@ -826,10 +845,16 @@ def update_json(json_file, i18n_dict, key_source_positions=None, flags=None, run
         "nf": 0,
         "add": 0,
         "skip": 0,
+        "dup": 0,
         "extra": 0,
         "remove": 0,
         "err": 0,
     }
+
+    if duplicate_keys:
+        counters["dup"] = len(duplicate_keys)
+        for key in duplicate_keys:
+            print_status("DUP", f"{key}  (keep first occurrence)", color="yellow")
 
     try:
         language = json_file.replace("\\", "/").split("/")[-1].split(".")[0]
@@ -896,12 +921,12 @@ def update_json(json_file, i18n_dict, key_source_positions=None, flags=None, run
 
     print_status(
         "SUM",
-        f"{target_name} | NF:{counters['nf']} ADD:{counters['add']} EXT:{counters['extra']} DEL:{counters['remove']} SKP:{counters['skip']} | {display_path}",
+        f"{target_name} | NF:{counters['nf']} ADD:{counters['add']} DUP:{counters['dup']} EXT:{counters['extra']} DEL:{counters['remove']} SKP:{counters['skip']} | {display_path}",
         color="blue",
     )
 
     if run_totals is not None:
-        for key in ("nf", "add", "skip", "extra", "remove", "err"):
+        for key in ("nf", "add", "skip", "dup", "extra", "remove", "err"):
             run_totals[key] = run_totals.get(key, 0) + counters[key]
 
     return data
@@ -991,6 +1016,7 @@ if __name__ == "__main__":
         [
             f"NF:{run_totals['nf']}",
             f"ADD:{run_totals['add']}",
+            f"DUP:{run_totals['dup']}",
             f"EXT:{run_totals['extra']}",
             f"DEL:{run_totals['remove']}",
             f"SKP:{run_totals['skip']}",
