@@ -808,7 +808,7 @@ def update_json(json_file, i18n_dict, key_source_positions=None, flags=None, run
     if flags is None:
         flags = {
             "sort_keys": True,
-            "auto_remove": True,
+            "auto_remove": False,
             "auto_add": True,
             "auto_translate": False,
         }
@@ -927,7 +927,7 @@ if __name__ == "__main__":
         "--auto-remove",
         help="Auto remove extra keys",
         action="store_true",
-        default=True,
+        default=False,
     )
     argparser.add_argument(
         "--sort-keys",
